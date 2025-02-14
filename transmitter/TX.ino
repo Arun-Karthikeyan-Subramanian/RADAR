@@ -9,30 +9,23 @@ RF24 radio(7, 8);
 
 
 struct Signal {
-  byte rover_front;
-  byte rover_back;
-  byte rover_right;
-  byte rover_left;
-  byte arm_up;
-  byte arm_down;
-  byte grip;
-  byte ungrip;
+  int rover_x;
+  int rover_y;
+  int arm;
+  int gripper;
 };
 
 Signal data;
 
 void ResetData(){
-  data.rover_front = 127; 
-  data.rover_back = 127;  
-  data.rover_right = 127;    
-  data.rover_left = 127;     
-  data.arm_up = 127;
-  data.arm_down = 127;  
-  data.grip = 127;
-  data.ungrip = 127;
+  data.rover_x = 512; 
+  data.rover_y= 512;  
+  data.arm = 512;
+  data.gripper = 512;
 }
 
 void setup(){
+  Serial.begin(9600);
   radio.begin();
   radio.openWritingPipe(pipeOut);
   radio.setAutoAck(false);
@@ -40,23 +33,22 @@ void setup(){
   radio.setPALevel(RF24_PA_HIGH);
   radio.stopListening();
   ResetData();
- 
 }
 
-int mapJoystickValues(int val, int lower, int middle, int upper, bool reverse){
-  val = constrain(val, lower, upper);
-  if ( val < middle )
-  val = map(val, lower, middle, 0, 128);
-  else
-  val = map(val, middle, upper, 128, 255);
-  return ( reverse ? 255 - val : val );
-}
-  void loop()
+void loop()
 {
   Serial.println(sizeof(Signal));
-  data.rover_front = mapJoystickValues( analogRead(A0), 12, 524, 1020, true );
-  data.rover_back = mapJoystickValues( analogRead(A1), 12, 524, 1020, true );
-  data.rover_right = mapJoystickValues( analogRead(A2), 12, 524, 1020, false );
-  data.rover_left = mapJoystickValues( analogRead(A3), 12, 524, 1020, false );
+  data.rover_x = constrain( analogRead(A0), 0, 1023);
+  data.rover_y =  constrain( analogRead(A1), 0, 1023);
+  data.arm =  constrain( analogRead(A2), 0, 1023 );
+  data.gripper = constrain( analogRead(A3), 0, 1023 );
+
+  Serial.print("Rover X: "); Serial.print(data.rover_x);
+  Serial.print(" | Rover Y: "); Serial.print(data.rover_y);
+  Serial.print(" | Arm: "); Serial.print(data.arm);
+  Serial.print(" | Gripper: "); Serial.println(data.gripper);
+
   radio.write(&data, sizeof(Signal));
+
+  delay(1000);
 }
