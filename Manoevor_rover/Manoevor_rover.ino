@@ -87,5 +87,5 @@ void loop() {
 }
 
 int scaleValue(int input){
-  return map(input, 0, 1225, -255, 255); 
+  return map(input, 0, 1023, -255, 255); 
 }
