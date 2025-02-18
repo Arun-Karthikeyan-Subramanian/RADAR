@@ -7,7 +7,7 @@ const uint64_t pipeOut = 0xE9E8F0F0E1LL;
 RF24 radio(7, 8);
 
 struct Signal {
-  int rover_x;
+   int rover_x;
   int rover_y;
   int arm;
   int gripper;
@@ -22,7 +22,7 @@ void setup() {
   Serial.begin(9600);
   radio.begin();
   radio.openWritingPipe(pipeOut);
-  radio.setAutoAck(false);
+  radio.setAutoAck(true);
   radio.setDataRate(RF24_250KBPS);
   radio.setPALevel(RF24_PA_HIGH);
   radio.stopListening();
@@ -78,6 +78,7 @@ void loop() {
   data.gripper = mapJoystickValues(analogRead(A3), meanGripper);
 
   // Print values
+  Serial.print(sizeof(Signal));
   Serial.print("Rover X: "); Serial.print(data.rover_x);
   Serial.print(" | Rover Y: "); Serial.print(data.rover_y);
   Serial.print(" | Arm: "); Serial.print(data.arm);
@@ -85,6 +86,6 @@ void loop() {
 
   // Send data over RF
   radio.write(&data, sizeof(Signal));
-
+  
   delay(100);  // Small delay to prevent flooding the receiver
 }
