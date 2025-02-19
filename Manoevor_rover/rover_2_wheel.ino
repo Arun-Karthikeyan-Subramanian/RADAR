@@ -1,3 +1,5 @@
+#include <Servo.h>
+
 struct signal{
   int rover_x,rover_y,arm,gripper;
 }s1;
@@ -20,6 +22,7 @@ void setup() {
   for(int i=0;i<(sizeof(pin)/sizeof(pin[0]));i++){
     pinMode(pin[i],OUTPUT);
   }
+  Serial.begin(9600);
   lift.attach(lift_servo);
   gripper.attach(gripper_servo);
   lift.write(90);
@@ -28,8 +31,12 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
-  s1.rover_x=analogRead(x_pin);
-  s1.rover_y=analogRead(y_pin);
+  s1.rover_x=motor_map(analogRead(x_pin));
+  s1.rover_y=motor_map(analogRead(y_pin));
+  Serial.print("x_value");
+  Serial.print(s1.rover_x);
+  Serial.print("y_value");
+  Serial.println(s1.rover_y);
   movement(s1,int1,int2,int3,int4,ena,enb);
   servo_control(s1, lift_servo, gripper_servo);
 }
@@ -81,4 +88,8 @@ int servo_map(int val) {
   } else {
     return map(val, -255,0 , -10, 0);  // Map negative direction
   }
+}
+
+int motor_map(int val) {
+   return map(val, 0, 1023, -255,255); 
 }
