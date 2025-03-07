@@ -1,0 +1,55 @@
+#include <WiFi.h>
+#include <esp_now.h>
+
+struct Signal {
+  int rover_x;
+  int rover_y;
+  int arm;
+  int gripper;
+};
+
+Signal receivedData;
+unsigned long lastRecvTime = 0;  // Track last received time
+
+void ResetData() {
+    // Initialize data to default values
+    receivedData.rover_x = 127;
+    receivedData.rover_y = 127;
+    receivedData.arm = 127;
+    receivedData.gripper = 127;
+}
+
+void onReceive(const esp_now_recv_info_t *info, const uint8_t *incomingData, int len) {
+    memcpy(&receivedData, incomingData, sizeof(receivedData));
+    lastRecvTime = millis();  // Update last received time
+}
+
+void setup() {
+    Serial.begin(115200);
+    WiFi.mode(WIFI_STA);
+    
+    ResetData();  // Initialize data
+    
+    if (esp_now_init() != ESP_OK) {
+        Serial.println("ESP-NOW init failed!");
+        return;
+    }
+    
+    esp_now_register_recv_cb(onReceive);
+}
+
+void loop() {
+    unsigned long now = millis();
+    
+    if (now - lastRecvTime > 1000) {
+        ResetData(); // If no data received for 1 sec, reset values
+    }
+    
+    // Print received values
+    Serial.print("Rover X: "); Serial.print(receivedData.rover_x);
+    Serial.print(" | Rover Y: "); Serial.print(receivedData.rover_y);
+    Serial.print(" | Arm: "); Serial.print(receivedData.arm);
+    Serial.print(" | Gripper: "); Serial.println(receivedData.gripper);
+
+    delay(500);  // Small delay to avoid spamming serial output
+}
