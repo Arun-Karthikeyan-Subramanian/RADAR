@@ -1,0 +1,116 @@
+#include <WiFi.h>
+#include <esp_now.h>
+
+#define VRX_PIN 32  // Joystick X-axis
+#define VRY_PIN 33  // Joystick Y-axis
+#define ARM_PIN 34  // Arm control
+#define GRIPPER_PIN 35  // Gripper control
+
+uint8_t receiverMAC[] = { 0x5C, 0x01, 0x3B, 0x4B, 0x4E, 0xBC };  // Replace with actual receiver MAC
+
+struct Signal {
+  int rover_x;
+  int rover_y;
+  int arm;
+  int gripper;
+};
+
+Signal data;
+
+int meanX = 0, meanY = 0, meanArm = 0, meanGripper = 0;
+bool meanCalculated = false;
+
+void onSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+  Serial.print("Send Status: ");
+  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Success" : "Fail");
+}
+
+void setup() {
+  Serial.begin(115200);
+  WiFi.mode(WIFI_STA);
+
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("ESP-NOW init failed!");
+    return;
+  }
+
+  esp_now_register_send_cb(onSent);
+
+  esp_now_peer_info_t peerInfo = {};
+  memcpy(peerInfo.peer_addr, receiverMAC, 6);
+  peerInfo.channel = 0;
+  peerInfo.encrypt = false;
+
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+    Serial.println("Failed to add peer");
+    return;
+  }
+
+  calculateMean();
+}
+
+void calculateMean() {
+  Serial.println("Calculating joystick center positions...");
+
+  long sumX = 0, sumY = 0, sumArm = 0, sumGripper = 0;
+  int count = 0;
+  unsigned long startTime = millis();
+
+  while (millis() - startTime < 5000) {  // Run for exactly 5 seconds
+    sumX += analogRead(VRX_PIN);
+    sumY += analogRead(VRY_PIN);
+    sumArm += analogRead(ARM_PIN);
+    sumGripper += analogRead(GRIPPER_PIN);
+    count++;
+    delay(10);  // Small delay to get reasonable samples
+  }
+
+  if (count > 0) {
+    meanX = sumX / count;
+    meanY = sumY / count;
+    meanArm = sumArm / count;
+    meanGripper = sumGripper / count;
+  } else {
+    Serial.println("Error: No samples collected!");
+  }
+
+  meanCalculated = true;
+  Serial.println("Mean values calculated! You can move the joystick now.");
+  Serial.print("Mean X: "); Serial.print(meanX);
+  Serial.print(" | Mean Y: "); Serial.print(meanY);
+  Serial.print(" | Mean Arm: "); Serial.print(meanArm);
+  Serial.print(" | Mean Gripper: "); Serial.println(meanGripper);
+}
+
+int mapJoystickValues(int val, int mean) {
+  if (val > mean) {
+    return map(val, mean, 4095, 0, 255);  // Adjusted for ESP32 (12-bit ADC)
+  } else {
+    return map(val, 0, mean, -255, 0);
+  }
+}
+
+void loop() {
+  if (!meanCalculated) return;  // Wait until mean is calculated
+
+  data.rover_x = mapJoystickValues(analogRead(VRX_PIN), meanX);
+  data.rover_y = mapJoystickValues(analogRead(VRY_PIN), meanY);
+  data.arm = mapJoystickValues(analogRead(ARM_PIN), meanArm);
+  data.gripper = mapJoystickValues(analogRead(GRIPPER_PIN), meanGripper);
+
+  // Print values
+  Serial.print("Rover X: "); Serial.print(data.rover_x);
+  Serial.print(" | Rover Y: "); Serial.print(data.rover_y);
+  Serial.print(" | Arm: "); Serial.print(data.arm);
+  Serial.print(" | Gripper: "); Serial.println(data.gripper);
+
+  esp_err_t result = esp_now_send(receiverMAC, (uint8_t *)&data, sizeof(data));
+
+  if (result == ESP_OK) {
+    Serial.println("Joystick data sent successfully!");
+  } else {
+    Serial.println("Error sending joystick data");
+  }
+
+  delay(200);
+}
